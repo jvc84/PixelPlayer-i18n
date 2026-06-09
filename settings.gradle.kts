@@ -24,6 +24,7 @@ dependencyResolutionManagement {
                 includeGroup("com.github.FaceOnLive")
                 includeGroup("com.github.racra")
                 includeGroup("com.github.tdlibx")
+                includeGroup("com.github.TeamNewPipe")
             }
         }
     }

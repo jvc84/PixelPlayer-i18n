@@ -35,6 +35,8 @@ import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.network.deezer.DeezerApiService
 import com.theveloper.pixelplay.data.network.netease.NeteaseApiService
 import com.theveloper.pixelplay.data.network.lyrics.LrcLibApiService
+import com.theveloper.pixelplay.data.network.youtube.YouTubeExtractorService
+import com.theveloper.pixelplay.data.network.youtube.YouTubeDownloadService
 import com.theveloper.pixelplay.data.repository.ArtistImageRepository
 import com.theveloper.pixelplay.data.repository.LyricsRepository
 import com.theveloper.pixelplay.data.repository.LyricsRepositoryImpl
@@ -556,5 +558,21 @@ object AppModule {
         musicDao: MusicDao
     ): ArtistImageRepository {
         return ArtistImageRepository(deezerApiService, musicDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideYouTubeExtractorService(): YouTubeExtractorService {
+        return YouTubeExtractorService()
+    }
+
+    @Provides
+    @Singleton
+    fun provideYouTubeDownloadService(
+        @ApplicationContext context: Context,
+        youTubeExtractorService: YouTubeExtractorService,
+        @FastOkHttpClient okHttpClient: OkHttpClient
+    ): YouTubeDownloadService {
+        return YouTubeDownloadService(context, youTubeExtractorService, okHttpClient)
     }
 }

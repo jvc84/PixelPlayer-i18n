@@ -290,6 +290,9 @@ dependencies {
     // Projects
     implementation(project(":shared"))
 
+    // NewPipe Extractor for YouTube audio extraction
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
+
     // Testing (Unit)
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)

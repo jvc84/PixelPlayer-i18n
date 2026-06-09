@@ -4,7 +4,10 @@ import android.util.Log
 import com.theveloper.pixelplay.data.model.SearchFilterType
 import com.theveloper.pixelplay.data.model.SearchHistoryItem
 import com.theveloper.pixelplay.data.model.SearchResultItem
+import com.theveloper.pixelplay.data.network.youtube.YouTubeExtractorService
+import com.theveloper.pixelplay.data.network.youtube.YouTubeToSongMapper
 import com.theveloper.pixelplay.data.repository.MusicRepository
+import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -38,6 +41,7 @@ import kotlinx.coroutines.FlowPreview
 @Singleton
 class SearchStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
+    private val youTubeExtractorService: YouTubeExtractorService,
 ) {
     private companion object {
         const val SEARCH_DEBOUNCE_MS = 300L
@@ -110,7 +114,40 @@ class SearchStateHolder @Inject constructor(
                                 return@collect
                             }
 
-                            val immutableResults = sortedResults.toImmutableList()
+                            var mergedResults = sortedResults
+
+                            // YouTube search for queries with few local results
+                            val localSongCount = sortedResults.count { it is SearchResultItem.SongItem }
+                            if ((currentFilter == SearchFilterType.ALL || currentFilter == SearchFilterType.SONGS) && localSongCount < 15) {
+                                try {
+                                    val youtubeResult = withContext(Dispatchers.IO) {
+                                        youTubeExtractorService.searchSongs(normalizedQuery)
+                                    }
+                                    youtubeResult.onSuccess { streamItems ->
+                                        val localSongKeys = sortedResults.filterIsInstance<SearchResultItem.SongItem>()
+                                            .map { it.song.title.lowercase() + it.song.artist.lowercase() }
+                                            .toSet()
+                                        val items = streamItems as List<StreamInfoItem>
+                                        val newYoutubeSongs = items
+                                            .filter { YouTubeToSongMapper.isLikelyMusicContent(it) }
+                                            .map { YouTubeToSongMapper.mapToSong(it) }
+                                            .filter { song ->
+                                                val key = song.title.lowercase() + song.artist.lowercase()
+                                                key !in localSongKeys
+                                            }
+                                            .map { song -> SearchResultItem.SongItem(song) }
+                                        mergedResults = (sortedResults + newYoutubeSongs).take(25)
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Error searching YouTube for query: $normalizedQuery")
+                                }
+                            }
+
+                            if (request.requestId != latestSearchRequestId.get()) {
+                                return@collect
+                            }
+
+                            val immutableResults = mergedResults.toImmutableList()
                             if (_searchResults.value != immutableResults) {
                                 _searchResults.value = immutableResults
                             }
